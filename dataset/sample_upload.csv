@@ -1,0 +1,5 @@
+Annual_Income,Declared_Tax,Deduction_Risk,Expense_Anomaly,Investment_Mismatch,Cash_Transaction_Risk,Business_Loss_Risk,Asset_Underreporting,Refund_Claim_Risk,Compliance_Risk,Income_Variation,Previous_Audit_Flag,Penalty_History,High_Value_Transactions,Foreign_Asset_Score,GST_Mismatch,Suspicious_Deduction,Shell_Company_Link,Frequent_ITR_Revisions,Cash_Deposit_Spike,High_Risk_Industry
+1200000,200000,20,25,30,20,15,20,18,22,25,0,0,20,25,0,0,0,0,0,0
+4500000,800000,95,92,91,90,85,94,88,90,93,1,1,95,92,1,1,1,1,1,1
+2200000,300000,45,40,42,38,35,40,39,41,43,0,0,40,42,0,0,0,0,0,0
+3900000,650000,88,85,90,92,80,91,87,89,90,1,1,90,89,1,1,1,1,1,1
