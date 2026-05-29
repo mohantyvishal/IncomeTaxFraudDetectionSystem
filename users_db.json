@@ -1,0 +1,226 @@
+{
+  "users": {
+    "admin1": {
+      "password": "e86f78a8a3caf0b60d8e74e5942aa6d86dc150cd3c03338aef25b7d2d7e3acc7",
+      "role": "Admin",
+      "created": "2026-05-28",
+      "last_login": "2026-05-29 13:32:47",
+      "failed_attempts": 0,
+      "locked": false
+    },
+    "admin2": {
+      "password": "7f484e682c9cf4c42e9cba611bcf04c18d1372bb920756c657c8c0233a2693ae",
+      "role": "Admin",
+      "created": "2026-05-28",
+      "last_login": "2026-05-29 13:33:38",
+      "failed_attempts": 0,
+      "locked": false
+    },
+    "virat": {
+      "password": "a59c09a8015566741daff370965d3b74fe592e7f0e9117dd307f51675a4ddb75",
+      "role": "Auditor",
+      "created": "2026-05-28",
+      "created_by": "admin1",
+      "last_login": "2026-05-28 13:43:45",
+      "failed_attempts": 0,
+      "locked": false
+    }
+  },
+  "activity_log": [
+    {
+      "time": "2026-05-29 13:33:46",
+      "user": "admin2",
+      "action": "Logged out"
+    },
+    {
+      "time": "2026-05-29 13:33:38",
+      "user": "admin2",
+      "action": "Logged in as Admin"
+    },
+    {
+      "time": "2026-05-29 13:33:20",
+      "user": "admin1",
+      "action": "Logged out"
+    },
+    {
+      "time": "2026-05-29 13:33:17",
+      "user": "admin1",
+      "action": "Unlocked account: admin2"
+    },
+    {
+      "time": "2026-05-29 13:33:12",
+      "user": "admin1",
+      "action": "Unlocked account: admin2"
+    },
+    {
+      "time": "2026-05-29 13:33:09",
+      "user": "admin1",
+      "action": "Unlocked account: admin2"
+    },
+    {
+      "time": "2026-05-29 13:32:47",
+      "user": "admin1",
+      "action": "Logged in as Admin"
+    },
+    {
+      "time": "2026-05-29 13:32:24",
+      "user": "admin2",
+      "action": "Account LOCKED \u2014 too many failed attempts"
+    },
+    {
+      "time": "2026-05-29 13:31:56",
+      "user": "admin1",
+      "action": "Logged out"
+    },
+    {
+      "time": "2026-05-29 13:30:18",
+      "user": "admin1",
+      "action": "Ran prediction \u2014 result: FRAUD (57.0%)"
+    },
+    {
+      "time": "2026-05-29 13:29:51",
+      "user": "admin1",
+      "action": "Logged in as Admin"
+    },
+    {
+      "time": "2026-05-28 20:41:34",
+      "user": "admin1",
+      "action": "Logged out"
+    },
+    {
+      "time": "2026-05-28 20:41:23",
+      "user": "admin1",
+      "action": "Logged in as Admin"
+    },
+    {
+      "time": "2026-05-28 16:27:37",
+      "user": "admin1",
+      "action": "Logged out"
+    },
+    {
+      "time": "2026-05-28 16:27:37",
+      "user": "admin1",
+      "action": "Batch analysis: 20 records, 10 fraud detected"
+    },
+    {
+      "time": "2026-05-28 16:25:23",
+      "user": "admin1",
+      "action": "Batch analysis: 20 records, 10 fraud detected"
+    },
+    {
+      "time": "2026-05-28 16:23:28",
+      "user": "admin1",
+      "action": "Logged in as Admin"
+    },
+    {
+      "time": "2026-05-28 13:44:54",
+      "user": "virat",
+      "action": "Logged out"
+    },
+    {
+      "time": "2026-05-28 13:44:54",
+      "user": "virat",
+      "action": "Batch analysis: 50 records, 24 fraud detected"
+    },
+    {
+      "time": "2026-05-28 13:43:56",
+      "user": "virat",
+      "action": "Batch analysis: 50 records, 24 fraud detected"
+    },
+    {
+      "time": "2026-05-28 13:43:45",
+      "user": "virat",
+      "action": "Logged in as Auditor"
+    },
+    {
+      "time": "2026-05-28 13:43:05",
+      "user": "virat",
+      "action": "Logged out"
+    },
+    {
+      "time": "2026-05-28 13:42:36",
+      "user": "virat",
+      "action": "Logged in as Auditor"
+    },
+    {
+      "time": "2026-05-28 13:41:07",
+      "user": "admin1",
+      "action": "Logged out"
+    },
+    {
+      "time": "2026-05-28 13:41:07",
+      "user": "admin1",
+      "action": "Batch analysis: 20 records, 10 fraud detected"
+    },
+    {
+      "time": "2026-05-28 13:40:57",
+      "user": "admin1",
+      "action": "Batch analysis: 20 records, 10 fraud detected"
+    },
+    {
+      "time": "2026-05-28 13:40:57",
+      "user": "admin1",
+      "action": "Ran prediction \u2014 result: FRAUD (52.0%)"
+    },
+    {
+      "time": "2026-05-28 13:40:15",
+      "user": "admin1",
+      "action": "Batch analysis: 20 records, 10 fraud detected"
+    },
+    {
+      "time": "2026-05-28 13:37:07",
+      "user": "admin1",
+      "action": "Logged in as Admin"
+    },
+    {
+      "time": "2026-05-28 13:30:53",
+      "user": "virat",
+      "action": "Logged out"
+    },
+    {
+      "time": "2026-05-28 13:28:18",
+      "user": "virat",
+      "action": "Logged in as Auditor"
+    },
+    {
+      "time": "2026-05-28 13:27:49",
+      "user": "admin1",
+      "action": "Created new Auditor account: virat"
+    },
+    {
+      "time": "2026-05-28 13:26:18",
+      "user": "admin1",
+      "action": "Logged out"
+    },
+    {
+      "time": "2026-05-28 13:26:18",
+      "user": "admin1",
+      "action": "Batch analysis: 20 records, 10 fraud detected"
+    },
+    {
+      "time": "2026-05-28 13:25:29",
+      "user": "admin1",
+      "action": "Batch analysis: 20 records, 10 fraud detected"
+    },
+    {
+      "time": "2026-05-28 13:25:11",
+      "user": "admin1",
+      "action": "Logged in as Admin"
+    },
+    {
+      "time": "2026-05-28 13:20:54",
+      "user": "admin1",
+      "action": "Batch analysis: 20 records, 10 fraud detected"
+    },
+    {
+      "time": "2026-05-28 13:20:27",
+      "user": "admin1",
+      "action": "Batch analysis: 20 records, 10 fraud detected"
+    },
+    {
+      "time": "2026-05-28 13:19:27",
+      "user": "admin1",
+      "action": "Logged in as Admin"
+    }
+  ]
+}
