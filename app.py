@@ -423,13 +423,7 @@ def show_login():
                             save_db(db)
                             st.error(f"✗  Wrong password. {remaining} attempt(s) remaining.")
 
-            st.markdown("""
-            <div class='creds-box'>
-                <div class='ch'>ℹ️ &nbsp; DEFAULT ADMIN CREDENTIALS</div>
-                admin1 / <span>Admin@123</span><br>
-                admin2 / <span>Admin@456</span><br>
-                <span style='color:#4a7fa5;font-size:10px;'>Auditors must be registered by an Admin</span>
-            </div>""", unsafe_allow_html=True)
+            
 
     # ── REGISTER AUDITOR ───────────────────────────────────
     elif st.session_state.login_page == "register":
