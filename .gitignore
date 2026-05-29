@@ -1,1 +1,4 @@
 users_db.json
+fraud_report.pdf
+__pycache__/
+*.pyc
