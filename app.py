@@ -563,28 +563,29 @@ def main_app():
         with L:
             st.markdown("<div class='sec-title'>INCOME & TAX DETAILS</div>", unsafe_allow_html=True)
             Annual_Income         = st.number_input("Annual Income (₹)",         min_value=200000, value=1000000, step=10000)
-            Declared_Tax          = st.number_input("Declared Tax (₹)",          min_value=5000,   value=200000,  step=5000)
-            Deduction_Risk        = st.slider("Deduction Risk Score",             0,100,50)
-            Expense_Anomaly       = st.slider("Expense Anomaly Score",            0,100,50)
-            Investment_Mismatch   = st.slider("Investment Mismatch Score",        0,100,50)
-            Cash_Transaction_Risk = st.slider("Cash Transaction Risk",            0,100,50)
-            Business_Loss_Risk    = st.slider("Business Loss Risk",               0,100,50)
-            Asset_Underreporting  = st.slider("Asset Underreporting Score",       0,100,50)
-            Refund_Claim_Risk     = st.slider("Refund Claim Risk",                0,100,50)
-            Compliance_Risk       = st.slider("Compliance Risk Score",            0,100,50)
-            Income_Variation      = st.slider("Income Variation Score",           0,100,50)
+            Declared_Tax          = st.number_input("Declared Tax (₹)",          min_value=5000,   value=200000,  step=5000)    
+            Deduction_Risk        = st.slider("Deduction Risk Score",             0,100,50, help="Measures the likelihood of suspicious or excessive tax deductions.")
+            Expense_Anomaly       = st.slider("Expense Anomaly Score",            0,100,50, help="Measures how unusual the reported expenses are compared to normal patterns.")
+            Investment_Mismatch   = st.slider("Investment Mismatch Score",        0,100,50, help="Indicates inconsistencies between declared income and investments.")
+            Cash_Transaction_Risk = st.slider("Cash Transaction Risk",            0,100,50, help="Measures the risk associated with large or frequent cash transactions.")
+            Business_Loss_Risk    = st.slider("Business Loss Risk",               0,100,50, help="Represents the likelihood of suspiciously reported business losses.")
+            Asset_Underreporting  = st.slider("Asset Underreporting Score",       0,100,50, help="Measures the probability that assets have been underreported.")
+            Refund_Claim_Risk     = st.slider("Refund Claim Risk",                0,100,50, help="Indicates the risk of fraudulent or excessive tax refund claims.")
+            Compliance_Risk       = st.slider("Compliance Risk Score",            0,100,50, help="Measures the likelihood of non-compliance with tax regulations.")
+            Income_Variation      = st.slider("Income Variation Score",           0,100,50, help="Measures unusual fluctuations in income across tax periods.")
         with R:
             st.markdown("<div class='sec-title'>FLAGS & RISK INDICATORS</div>", unsafe_allow_html=True)
-            High_Value_Transactions = st.slider("High Value Transaction Count",   0,100,50)
-            Foreign_Asset_Score     = st.slider("Foreign Asset Disclosure Score", 0,100,50)
-            Previous_Audit_Flag     = st.radio("Previous Audit Flag",    [0,1], horizontal=True)
-            Penalty_History         = st.radio("Penalty History Flag",   [0,1], horizontal=True)
-            GST_Mismatch            = st.radio("GST Mismatch Flag",      [0,1], horizontal=True)
-            Suspicious_Deduction    = st.radio("Suspicious Deduction",   [0,1], horizontal=True)
-            Shell_Company_Link      = st.radio("Shell Company Link",     [0,1], horizontal=True)
-            Frequent_ITR_Revisions  = st.radio("Frequent ITR Revisions", [0,1], horizontal=True)
-            Cash_Deposit_Spike      = st.radio("Cash Deposit Spike",     [0,1], horizontal=True)
-            High_Risk_Industry      = st.radio("High Risk Industry",     [0,1], horizontal=True)
+            High_Value_Transactions = st.slider("High Value Transaction Count",   0,100,50, help="Represents the number or frequency of unusually high-value transactions.")
+            Foreign_Asset_Score     = st.slider("Foreign Asset Disclosure Score", 0,100,50, help="Measures risk associated with foreign asset ownership and disclosure.")
+
+            Previous_Audit_Flag     = st.radio("Previous Audit Flag",    [0,1], horizontal=True, help="1 indicates the taxpayer was audited previously.")
+            Penalty_History         = st.radio("Penalty History Flag",   [0,1], horizontal=True, help="1 indicates previous tax penalties or violations.")
+            GST_Mismatch            = st.radio("GST Mismatch Flag",      [0,1], horizontal=True, help="1 indicates discrepancies between GST records and tax filings.")
+            Suspicious_Deduction    = st.radio("Suspicious Deduction",   [0,1], horizontal=True, help="1 indicates potentially questionable deduction claims.")
+            Shell_Company_Link      = st.radio("Shell Company Link",     [0,1], horizontal=True, help="1 indicates a possible connection to shell companies.")
+            Frequent_ITR_Revisions  = st.radio("Frequent ITR Revisions", [0,1], horizontal=True, help="1 indicates multiple revisions of income tax returns.")
+            Cash_Deposit_Spike      = st.radio("Cash Deposit Spike",     [0,1], horizontal=True, help="1 indicates sudden unusual increases in cash deposits.")
+            High_Risk_Industry      = st.radio("High Risk Industry",     [0,1], horizontal=True, help="1 indicates the taxpayer operates in a high-risk industry sector.")
 
         input_df = pd.DataFrame([[
             Annual_Income,Declared_Tax,Deduction_Risk,Expense_Anomaly,
@@ -602,7 +603,7 @@ def main_app():
             rf_p   = float(rf_model.predict_proba(scaled)[0][1])
             xgb_p  = float(xgb_model.predict_proba(scaled)[0][1])
             lr_p   = float(lr_model.predict_proba(scaled)[0][1])
-            final  = rf_p; is_fr = final >= 0.5
+            final  = (rf_p + xgb_p + lr_p) / 3; is_fr = final >= 0.5
             if is_fr: st.session_state.fraud_count += 1
             log_activity(db, uname, f"Ran prediction — result: {'FRAUD' if is_fr else 'SAFE'} ({final:.1%})")
 
