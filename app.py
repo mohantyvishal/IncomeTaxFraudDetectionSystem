@@ -425,37 +425,26 @@ def show_login():
 
             
 
-    # ── REGISTER AUDITOR ───────────────────────────────────
+    # ── REGISTER AUDITOR (self-registration, no admin needed) ──
     elif st.session_state.login_page == "register":
         with col:
             st.markdown("""
             <div class='lcard'>
-                <div class='lcard-title'>📝 &nbsp; REGISTER NEW AUDITOR</div>
-                <div class='lcard-sub'>// ADMIN AUTHORIZATION REQUIRED //</div>
+                <div class='lcard-title'>📝 &nbsp; CREATE AUDITOR ACCOUNT</div>
+                <div class='lcard-sub'>// REGISTER AS A NEW AUDITOR //</div>
             </div>""", unsafe_allow_html=True)
 
-            st.markdown("<div class='info-box2'>⚠️ Only Admins can create new auditor accounts. Enter your Admin credentials below to authorize.</div>", unsafe_allow_html=True)
+            st.markdown("<div class='info-box2'>ℹ️ Fill in the details below to create your Auditor account. Your account will be active immediately.</div>", unsafe_allow_html=True)
 
-            admin_user = st.text_input("Admin Username", placeholder="Enter admin username", key="r_au")
-            admin_pass = st.text_input("Admin Password", type="password", placeholder="Enter admin password", key="r_ap")
+            new_user  = st.text_input("Choose Username", placeholder="e.g. auditor_ravi", key="r_nu")
+            new_pass  = st.text_input("Choose Password", type="password", placeholder="Min 8 characters", key="r_np")
+            conf_pass = st.text_input("Confirm Password", type="password", placeholder="Re-enter your password", key="r_cp")
 
-            st.markdown("---")
-            new_user  = st.text_input("New Auditor Username", placeholder="e.g. auditor_ravi", key="r_nu")
-            new_pass  = st.text_input("New Password", type="password", placeholder="Min 8 chars", key="r_np")
-            conf_pass = st.text_input("Confirm Password", type="password", placeholder="Re-enter password", key="r_cp")
-
-            if st.button("✅  CREATE AUDITOR ACCOUNT"):
-                # Validate admin
-                if admin_user not in db["users"]:
-                    st.error("Admin username not found.")
-                elif db["users"][admin_user]["role"] != "Admin":
-                    st.error("Only Admins can create accounts.")
-                elif hash_pw(admin_pass) != db["users"][admin_user]["password"]:
-                    st.error("Wrong admin password.")
-                elif not new_user or len(new_user.strip()) < 3:
+            if st.button("✅  CREATE MY ACCOUNT"):
+                if not new_user or len(new_user.strip()) < 3:
                     st.error("Username must be at least 3 characters.")
                 elif new_user in db["users"]:
-                    st.error(f"Username '{new_user}' already exists.")
+                    st.error(f"Username '{new_user}' is already taken. Please choose another.")
                 elif len(new_pass) < 8:
                     st.error("Password must be at least 8 characters.")
                 elif new_pass != conf_pass:
@@ -465,14 +454,15 @@ def show_login():
                         "password":        hash_pw(new_pass),
                         "role":            "Auditor",
                         "created":         str(datetime.date.today()),
-                        "created_by":      admin_user,
+                        "created_by":      "Self-Registered",
                         "last_login":      None,
                         "failed_attempts": 0,
                         "locked":          False
                     }
                     save_db(db)
-                    log_activity(db, admin_user, f"Created new Auditor account: {new_user}")
-                    st.success(f"✅ Auditor account '{new_user}' created successfully!")
+                    log_activity(db, new_user, "Self-registered as Auditor")
+                    st.success(f"✅ Account '{new_user}' created! Go to Login and sign in.")
+                    st.balloons()
 
     # ── FORGOT PASSWORD ────────────────────────────────────
     elif st.session_state.login_page == "forgot":
