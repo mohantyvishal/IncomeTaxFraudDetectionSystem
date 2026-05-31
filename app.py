@@ -687,13 +687,64 @@ def main_app():
         acc_df=pd.DataFrame({"Model":["Logistic Regression","Random Forest","XGBoost"],"Accuracy":[89.2,94.6,96.1],"Precision":[85.6,92.1,94.7],"Recall":[82.3,93.5,95.2],"F1-Score":[83.9,92.8,94.9],"AUC-ROC":[88.7,96.3,97.6]})
         st.dataframe(acc_df.set_index("Model"),use_container_width=True)
         st.bar_chart(acc_df.set_index("Model")[["Accuracy","Precision","Recall","F1-Score"]])
-        st.markdown("<div class='sec-title'>SHAP FEATURE IMPORTANCE</div>", unsafe_allow_html=True)
-        shap_df=pd.DataFrame({"Feature":["Claimed Deductions","Income Change","Num Dependents","Audit History","Expense Ratio"],"SHAP Value":[0.29,0.24,0.18,0.16,0.11]})
-        st.bar_chart(shap_df.set_index("Feature"))
+        st.markdown("<div class='sec-title'>SHAP FEATURE IMPORTANCE (RANDOM FOREST)</div>", unsafe_allow_html=True)
+        shap_csv = os.path.join(BASE_DIR, "model_artifacts", "shap_values.csv")
+        if os.path.exists(shap_csv):
+            import plotly.graph_objects as go
+            shap_df = pd.read_csv(shap_csv)
+            shap_df.columns = ["Feature", "SHAP_Value"]
+            shap_df = shap_df.sort_values("SHAP_Value", ascending=True).reset_index(drop=True)
+            shap_df["Feature"] = shap_df["Feature"].str.replace("_", " ")
+            max_val = shap_df["SHAP_Value"].max()
+            def get_color(val):
+                ratio = val / max_val
+                if   ratio >= 0.80: return "#ff2d55"
+                elif ratio >= 0.60: return "#ff6b35"
+                elif ratio >= 0.40: return "#ffa500"
+                elif ratio >= 0.20: return "#00d4ff"
+                else:               return "#1a5080"
+            colors = [get_color(v) for v in shap_df["SHAP_Value"]]
+            fig = go.Figure(go.Bar(
+                x=shap_df["SHAP_Value"],
+                y=shap_df["Feature"],
+                orientation="h",
+                marker=dict(color=colors),
+                text=[f"{v:.4f}" for v in shap_df["SHAP_Value"]],
+                textposition="outside",
+                textfont=dict(color="#ffffff", size=11)
+            ))
+            fig.update_layout(
+                paper_bgcolor="#020b18",
+                plot_bgcolor="#0a1f3a",
+                font=dict(color="#ffffff", family="Share Tech Mono"),
+                xaxis=dict(title="Mean |SHAP Value|", color="#7eb8d4", gridcolor="#1a5080", tickfont=dict(color="#7eb8d4")),
+                yaxis=dict(color="#ffffff", tickfont=dict(color="#ffffff", size=11), gridcolor="#1a5080"),
+                height=520,
+                margin=dict(l=10, r=80, t=20, b=40),
+                showlegend=False
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            st.markdown("<div class='info-box2'>📊 Real SHAP values from TreeExplainer on your trained Random Forest. Higher = stronger fraud influence. 🔴 Critical &nbsp;🟠 High &nbsp;🟡 Medium &nbsp;🔵 Low</div>", unsafe_allow_html=True)
+            st.markdown("<div class='sec-title'>TOP 5 MOST INFLUENTIAL FEATURES</div>", unsafe_allow_html=True)
+            top5 = pd.read_csv(shap_csv)
+            top5.columns = ["Feature", "SHAP_Value"]
+            top5 = top5.sort_values("SHAP_Value", ascending=False).head(5).reset_index(drop=True)
+            card_colors = ["#ff2d55","#ff6b35","#ffa500","#00d4ff","#00ff9d"]
+            c1,c2,c3,c4,c5 = st.columns(5)
+            for idx2, (col2, (_,row2)) in enumerate(zip([c1,c2,c3,c4,c5], top5.iterrows())):
+                with col2:
+                    st.markdown(f"""<div class='scard' style='border-top:3px solid {card_colors[idx2]};'>
+                        <div class='snum' style='font-size:18px;color:{card_colors[idx2]};'>{row2["SHAP_Value"]:.3f}</div>
+                        <div class='slbl' style='font-size:9px;'>{row2["Feature"].replace("_"," ")}</div>
+                    </div>""", unsafe_allow_html=True)
+        else:
+            st.warning("⚠️ Run train_model.py to generate real SHAP values.")
+            shap_df=pd.DataFrame({"Feature":["Shell Company Link","GST Mismatch","Cash Deposit Spike","Asset Underreporting","Compliance Risk"],"SHAP Value":[0.29,0.24,0.20,0.18,0.15]})
+            st.bar_chart(shap_df.set_index("Feature"))
         i1,i2,i3=st.columns(3)
         with i1: st.info("**SMOTE** — Synthetic Minority Oversampling fixes class imbalance")
-        with i2: st.info("**RFE** — Recursive Feature Elimination keeps best predictors")
-        with i3: st.info("**SHAP** — Explainable AI makes model decisions transparent")
+        with i2: st.info("**TreeExplainer** — SHAP method optimized for Random Forest models")
+        with i3: st.info("**SHAP** — SHapley Additive exPlanations makes predictions explainable")
 
     # ════════ TAB 4 — USER MANAGEMENT (Admin only) ════════
     if role == "Admin" and t4:
