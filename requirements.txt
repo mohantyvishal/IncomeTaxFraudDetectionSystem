@@ -6,3 +6,5 @@ xgboost
 plotly
 joblib
 reportlab
+shap
+imbalanced-learn

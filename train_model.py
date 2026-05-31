@@ -10,6 +10,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from xgboost import XGBClassifier
 from imblearn.over_sampling import SMOTE
+import shap
 
 # ---------------------------------------------------
 # LOAD DATASET
@@ -117,6 +118,26 @@ print(f"Random Forest: {rf_acc:.4f}")
 print(f"XGBoost: {xgb_acc:.4f}")
 
 # ---------------------------------------------------
+# SHAP FEATURE IMPORTANCE
+# ---------------------------------------------------
+
+print("\nComputing SHAP values from Random Forest model...")
+explainer   = shap.TreeExplainer(rf_model)
+shap_values = explainer.shap_values(X_test_scaled[:300])  # 300 samples for speed
+
+import numpy as np
+sv = shap_values[:, :, 1] if shap_values.ndim == 3 else shap_values
+mean_shap = np.abs(sv).mean(axis=0)
+
+shap_df = pd.DataFrame({
+    "Feature":    list(X.columns),
+    "SHAP_Value": np.round(mean_shap, 4)
+}).sort_values("SHAP_Value", ascending=False).reset_index(drop=True)
+
+print("\nSHAP Feature Importance:")
+print(shap_df.to_string())
+
+# ---------------------------------------------------
 # SAVE MODELS
 # ---------------------------------------------------
 
@@ -134,4 +155,8 @@ joblib.dump(xgb_model,
 joblib.dump(scaler,
             "model_artifacts/scaler.pkl")
 
+# Save SHAP values as CSV (used by app.py)
+shap_df.to_csv("model_artifacts/shap_values.csv", index=False)
+
 print("\nModels Saved Successfully")
+print("SHAP values saved to model_artifacts/shap_values.csv")
