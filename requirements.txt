@@ -8,3 +8,4 @@ joblib
 reportlab
 shap
 imbalanced-learn
+supabase

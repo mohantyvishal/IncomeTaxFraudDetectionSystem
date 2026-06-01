@@ -21,55 +21,110 @@ st.set_page_config(
 )
 
 # ══════════════════════════════════════════════════════════════
-# FILE-BASED DATABASE  (stores users + activity log as JSON)
+# SUPABASE CONNECTION
 # ══════════════════════════════════════════════════════════════
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_FILE  = os.path.join(BASE_DIR, "users_db.json")
+import urllib.request
+import urllib.error
 
-def load_db():
-    if os.path.exists(DB_FILE):
-        with open(DB_FILE, "r") as f:
-            return json.load(f)
-    # Default DB — 2 admins, no auditors yet
-    default = {
-        "users": {
-            "admin1": {
-                "password": hashlib.sha256(b"Admin@123").hexdigest(),
-                "role": "Admin",
-                "created": str(datetime.date.today()),
-                "last_login": None,
-                "failed_attempts": 0,
-                "locked": False
-            },
-            "admin2": {
-                "password": hashlib.sha256(b"Admin@456").hexdigest(),
-                "role": "Admin",
-                "created": str(datetime.date.today()),
-                "last_login": None,
-                "failed_attempts": 0,
-                "locked": False
-            }
-        },
-        "activity_log": []
-    }
-    save_db(default)
-    return default
+SUPABASE_URL = st.secrets["SUPABASE_URL"].rstrip("/")
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
-def save_db(db):
-    with open(DB_FILE, "w") as f:
-        json.dump(db, f, indent=2)
+HEADERS = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "Content-Type": "application/json",
+    "Prefer": "return=representation"
+}
 
-def log_activity(db, username, action):
-    entry = {
+def sb_request(method, path, data=None):
+    url = f"{SUPABASE_URL}/rest/v1/{path}"
+    body = json.dumps(data).encode() if data else None
+    req = urllib.request.Request(url, data=body, headers=HEADERS, method=method)
+    try:
+        with urllib.request.urlopen(req) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        return []
+
+# ── USER FUNCTIONS ──────────────────────────────────────────
+def get_all_users():
+    rows = sb_request("GET", "users?select=*")
+    users = {}
+    for r in rows:
+        users[r["username"]] = {
+            "password":        r["password"],
+            "role":            r["role"],
+            "created":         r.get("created", ""),
+            "created_by":      r.get("created_by", "System"),
+            "last_login":      r.get("last_login"),
+            "failed_attempts": r.get("failed_attempts", 0),
+            "locked":          r.get("locked", False)
+        }
+    return users
+
+def get_user(username):
+    rows = sb_request("GET", f"users?username=eq.{username}&select=*")
+    if rows:
+        r = rows[0]
+        return {
+            "password":        r["password"],
+            "role":            r["role"],
+            "created":         r.get("created", ""),
+            "created_by":      r.get("created_by", "System"),
+            "last_login":      r.get("last_login"),
+            "failed_attempts": r.get("failed_attempts", 0),
+            "locked":          r.get("locked", False)
+        }
+    return None
+
+def create_user(username, password, role, created_by="Self-Registered"):
+    sb_request("POST", "users", {
+        "username": username, "password": password, "role": role,
+        "created": str(datetime.date.today()), "created_by": created_by,
+        "last_login": None, "failed_attempts": 0, "locked": False
+    })
+
+def update_user(username, fields):
+    path = f"users?username=eq.{username}"
+    req_url = f"{SUPABASE_URL}/rest/v1/{path}"
+    body = json.dumps(fields).encode()
+    headers = {**HEADERS, "Prefer": "return=minimal"}
+    req = urllib.request.Request(req_url, data=body, headers=headers, method="PATCH")
+    try:
+        urllib.request.urlopen(req)
+    except:
+        pass
+
+def delete_user(username):
+    req_url = f"{SUPABASE_URL}/rest/v1/users?username=eq.{username}"
+    req = urllib.request.Request(req_url, headers=HEADERS, method="DELETE")
+    try:
+        urllib.request.urlopen(req)
+    except:
+        pass
+
+def user_exists(username):
+    rows = sb_request("GET", f"users?username=eq.{username}&select=username")
+    return len(rows) > 0
+
+# ── ACTIVITY LOG FUNCTIONS ───────────────────────────────────
+def log_activity(username, action):
+    sb_request("POST", "activity_log", {
         "time":   datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "user":   username,
+        "username": username,
         "action": action
-    }
-    db["activity_log"].insert(0, entry)
-    db["activity_log"] = db["activity_log"][:200]  # keep last 200 entries
-    save_db(db)
+    })
 
-def hash_pw(pw): return hashlib.sha256(pw.encode()).hexdigest()
+def get_activity_log():
+    rows = sb_request("GET", "activity_log?select=*&order=id.desc&limit=200")
+    return [{"time": r["time"], "user": r["username"], "action": r["action"]} for r in rows]
+
+def get_activity_count():
+    rows = sb_request("GET", "activity_log?select=id")
+    return len(rows)
+
+def hash_pw(pw):
+    return hashlib.sha256(pw.encode()).hexdigest()
 
 # ══════════════════════════════════════════════════════════════
 # CSS
@@ -96,7 +151,6 @@ section[data-testid="stSidebar"] { display:none !important; }
 
 p, span, label, div, h1, h2, h3, h4 { color:#ffffff !important; }
 
-/* widget labels */
 .stSlider label, .stRadio label, .stNumberInput label,
 .stTextInput label, .stFileUploader label,
 [data-testid="stWidgetLabel"] p,
@@ -106,7 +160,6 @@ p, span, label, div, h1, h2, h3, h4 { color:#ffffff !important; }
     font-size:13px !important; font-weight:600 !important; letter-spacing:1px !important;
 }
 
-/* inputs */
 .stNumberInput input, .stTextInput input, .stTextArea textarea {
     background:#061428 !important; color:#ffffff !important;
     border:1px solid #1a5080 !important; border-radius:8px !important; font-size:15px !important;
@@ -115,7 +168,6 @@ p, span, label, div, h1, h2, h3, h4 { color:#ffffff !important; }
     border-color:#00d4ff !important; box-shadow:0 0 10px rgba(0,212,255,.3) !important;
 }
 
-/* tabs */
 .stTabs [data-baseweb="tab-list"] {
     background:#0a1f3a !important; border-radius:12px !important;
     padding:6px !important; border:1px solid #1a5080 !important; gap:6px !important;
@@ -130,7 +182,6 @@ p, span, label, div, h1, h2, h3, h4 { color:#ffffff !important; }
     color:#ffffff !important;
 }
 
-/* buttons */
 .stButton > button {
     background:linear-gradient(135deg,#8b0000,#ff2d55) !important;
     color:#fff !important; border:none !important; border-radius:12px !important;
@@ -140,7 +191,6 @@ p, span, label, div, h1, h2, h3, h4 { color:#ffffff !important; }
 }
 .stButton > button:hover { transform:translateY(-2px) !important; box-shadow:0 8px 25px rgba(255,45,85,.5) !important; }
 
-/* download */
 .stDownloadButton > button {
     background:rgba(0,212,255,.12) !important; color:#00d4ff !important;
     border:1px solid #00d4ff !important; border-radius:10px !important;
@@ -148,29 +198,18 @@ p, span, label, div, h1, h2, h3, h4 { color:#ffffff !important; }
     letter-spacing:2px !important; width:auto !important; padding:10px 20px !important;
 }
 
-/* slider */
 .stSlider > div > div > div { background:#00d4ff !important; }
-
-/* radio */
 .stRadio > div { flex-direction:row !important; gap:14px !important; }
-
-/* dataframe */
 [data-testid="stDataFrame"] { border:1px solid #1a5080 !important; border-radius:12px !important; }
-
-/* alerts */
 [data-testid="stAlert"] p { color:#ffffff !important; font-size:14px !important; }
-
-/* metric */
 [data-testid="stMetric"] { background:#0a1f3a !important; border:1px solid #1a5080 !important; border-radius:12px !important; padding:16px !important; }
 [data-testid="stMetricLabel"] p { color:#00d4ff !important; font-family:'Share Tech Mono',monospace !important; font-size:12px !important; letter-spacing:2px !important; text-transform:uppercase !important; }
 [data-testid="stMetricValue"]   { color:#ffffff !important; font-family:'Orbitron',monospace !important; font-size:30px !important; font-weight:900 !important; }
 
-/* ghost button fix */
 [data-testid="stBaseButton-headerNoPadding"],
 [data-testid="stElementToolbar"],
 [data-testid="stElementToolbarButton"] { display:none !important; }
 
-/* ── Custom components ── */
 .pg-badge {
     display:inline-block; font-family:'Share Tech Mono',monospace;
     font-size:11px; color:#00d4ff; border:1px solid #1a5080;
@@ -208,7 +247,6 @@ p, span, label, div, h1, h2, h3, h4 { color:#ffffff !important; }
 .ndot { display:inline-block; width:9px; height:9px; background:#00ff9d; border-radius:50%; margin-right:6px; box-shadow:0 0 8px #00ff9d; animation:blink 2s ease infinite; }
 @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.3;} }
 
-/* role badge */
 .role-admin  { background:rgba(255,215,0,.15); border:1px solid #ffd700; color:#ffd700 !important; padding:3px 10px; border-radius:20px; font-size:11px; font-family:'Share Tech Mono',monospace; letter-spacing:1px; }
 .role-auditor{ background:rgba(0,212,255,.15); border:1px solid #00d4ff; color:#00d4ff !important; padding:3px 10px; border-radius:20px; font-size:11px; font-family:'Share Tech Mono',monospace; letter-spacing:1px; }
 
@@ -298,6 +336,7 @@ for k, v in {
 # ══════════════════════════════════════════════════════════════
 # LOAD MODELS
 # ══════════════════════════════════════════════════════════════
+BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, "model_artifacts")
 
 @st.cache_resource
@@ -351,8 +390,6 @@ def make_pdf(prob, risk_text, verdict, reasons):
 # LOGIN PAGE
 # ══════════════════════════════════════════════════════════════
 def show_login():
-    db = load_db()
-
     st.markdown("""
     <div style='text-align:center;padding:30px 20px 18px;'>
         <div class='pg-badge'>TAX FRAUD DETECTION SYSTEM</div><br>
@@ -361,25 +398,21 @@ def show_login():
         <div class='hdr-line'></div>
     </div>""", unsafe_allow_html=True)
 
-    # Navigation between login / register / forgot password
     nav1, nav2, nav3 = st.columns(3)
     with nav1:
         if st.button("🔐  Login", key="nav_login"):
-            st.session_state.login_page = "login"
-            st.rerun()
+            st.session_state.login_page = "login"; st.rerun()
     with nav2:
         if st.button("📝  Register Auditor", key="nav_reg"):
-            st.session_state.login_page = "register"
-            st.rerun()
+            st.session_state.login_page = "register"; st.rerun()
     with nav3:
         if st.button("🔑  Forgot Password", key="nav_forgot"):
-            st.session_state.login_page = "forgot"
-            st.rerun()
+            st.session_state.login_page = "forgot"; st.rerun()
 
     st.markdown("<br>", unsafe_allow_html=True)
     _, col, _ = st.columns([1, 1.2, 1])
 
-    # ── LOGIN FORM ──────────────────────────────────────────
+    # ── LOGIN ──
     if st.session_state.login_page == "login":
         with col:
             st.markdown("""
@@ -394,38 +427,32 @@ def show_login():
             if st.button("▶  LOGIN"):
                 if not uname or not uname.strip():
                     st.error("Please enter a username.")
-                elif uname not in db["users"]:
-                    st.error("✗  Username not found.")
                 else:
-                    user = db["users"][uname]
-                    if user.get("locked"):
+                    user = get_user(uname)
+                    if not user:
+                        st.error("✗  Username not found.")
+                    elif user.get("locked"):
                         st.markdown("""<div class='warn-box'>🔒 Account locked after 3 failed attempts.<br>
                         Contact an Admin to unlock your account.</div>""", unsafe_allow_html=True)
                     elif hash_pw(passw) == user["password"]:
-                        # Success
-                        user["failed_attempts"] = 0
-                        user["last_login"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        save_db(db)
-                        log_activity(db, uname, f"Logged in as {user['role']}")
+                        update_user(uname, {"failed_attempts": 0, "last_login": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+                        log_activity(uname, f"Logged in as {user['role']}")
                         st.session_state.logged_in = True
                         st.session_state.username  = uname
                         st.session_state.role      = user["role"]
                         st.rerun()
                     else:
-                        user["failed_attempts"] = user.get("failed_attempts", 0) + 1
-                        remaining = MAX_ATTEMPTS - user["failed_attempts"]
-                        if user["failed_attempts"] >= MAX_ATTEMPTS:
-                            user["locked"] = True
-                            save_db(db)
-                            log_activity(db, uname, "Account LOCKED — too many failed attempts")
+                        new_attempts = user.get("failed_attempts", 0) + 1
+                        remaining = MAX_ATTEMPTS - new_attempts
+                        if new_attempts >= MAX_ATTEMPTS:
+                            update_user(uname, {"failed_attempts": new_attempts, "locked": True})
+                            log_activity(uname, "Account LOCKED — too many failed attempts")
                             st.error("🔒 Account locked after 3 failed attempts. Contact an Admin.")
                         else:
-                            save_db(db)
+                            update_user(uname, {"failed_attempts": new_attempts})
                             st.error(f"✗  Wrong password. {remaining} attempt(s) remaining.")
 
-            
-
-    # ── REGISTER AUDITOR (self-registration, no admin needed) ──
+    # ── REGISTER ──
     elif st.session_state.login_page == "register":
         with col:
             st.markdown("""
@@ -433,8 +460,7 @@ def show_login():
                 <div class='lcard-title'>📝 &nbsp; CREATE AUDITOR ACCOUNT</div>
                 <div class='lcard-sub'>// REGISTER AS A NEW AUDITOR //</div>
             </div>""", unsafe_allow_html=True)
-
-            st.markdown("<div class='info-box2'>ℹ️ Fill in the details below to create your Auditor account. Your account will be active immediately.</div>", unsafe_allow_html=True)
+            st.markdown("<div class='info-box2'>ℹ️ Fill in the details below to create your Auditor account.</div>", unsafe_allow_html=True)
 
             new_user  = st.text_input("Choose Username", placeholder="e.g. auditor_ravi", key="r_nu")
             new_pass  = st.text_input("Choose Password", type="password", placeholder="Min 8 characters", key="r_np")
@@ -443,28 +469,19 @@ def show_login():
             if st.button("✅  CREATE MY ACCOUNT"):
                 if not new_user or len(new_user.strip()) < 3:
                     st.error("Username must be at least 3 characters.")
-                elif new_user in db["users"]:
-                    st.error(f"Username '{new_user}' is already taken. Please choose another.")
+                elif user_exists(new_user):
+                    st.error(f"Username '{new_user}' is already taken.")
                 elif len(new_pass) < 8:
                     st.error("Password must be at least 8 characters.")
                 elif new_pass != conf_pass:
                     st.error("Passwords don't match.")
                 else:
-                    db["users"][new_user] = {
-                        "password":        hash_pw(new_pass),
-                        "role":            "Auditor",
-                        "created":         str(datetime.date.today()),
-                        "created_by":      "Self-Registered",
-                        "last_login":      None,
-                        "failed_attempts": 0,
-                        "locked":          False
-                    }
-                    save_db(db)
-                    log_activity(db, new_user, "Self-registered as Auditor")
+                    create_user(new_user, hash_pw(new_pass), "Auditor")
+                    log_activity(new_user, "Self-registered as Auditor")
                     st.success(f"✅ Account '{new_user}' created! Go to Login and sign in.")
                     st.balloons()
 
-    # ── FORGOT PASSWORD ────────────────────────────────────
+    # ── FORGOT PASSWORD ──
     elif st.session_state.login_page == "forgot":
         with col:
             st.markdown("""
@@ -472,46 +489,45 @@ def show_login():
                 <div class='lcard-title'>🔑 &nbsp; RESET PASSWORD</div>
                 <div class='lcard-sub'>// ADMIN AUTHORIZATION REQUIRED //</div>
             </div>""", unsafe_allow_html=True)
-
-            st.markdown("<div class='info-box2'>An Admin must authorize all password resets. Enter Admin credentials to proceed.</div>", unsafe_allow_html=True)
+            st.markdown("<div class='info-box2'>An Admin must authorize all password resets.</div>", unsafe_allow_html=True)
 
             admin_user  = st.text_input("Admin Username", key="f_au")
             admin_pass  = st.text_input("Admin Password", type="password", key="f_ap")
-            target_user = st.text_input("Username to Reset", placeholder="Enter the account username", key="f_tu")
-            new_pass    = st.text_input("New Password", type="password", placeholder="Min 8 chars", key="f_np")
+            target_user = st.text_input("Username to Reset", key="f_tu")
+            new_pass    = st.text_input("New Password", type="password", key="f_np")
             conf_pass   = st.text_input("Confirm New Password", type="password", key="f_cp")
 
             if st.button("🔄  RESET PASSWORD"):
-                if admin_user not in db["users"]:
+                admin = get_user(admin_user)
+                if not admin:
                     st.error("Admin username not found.")
-                elif db["users"][admin_user]["role"] != "Admin":
+                elif admin["role"] != "Admin":
                     st.error("Only Admins can reset passwords.")
-                elif hash_pw(admin_pass) != db["users"][admin_user]["password"]:
+                elif hash_pw(admin_pass) != admin["password"]:
                     st.error("Wrong admin password.")
-                elif target_user not in db["users"]:
+                elif not user_exists(target_user):
                     st.error(f"User '{target_user}' not found.")
                 elif len(new_pass) < 8:
                     st.error("New password must be at least 8 characters.")
                 elif new_pass != conf_pass:
                     st.error("Passwords don't match.")
                 else:
-                    db["users"][target_user]["password"]        = hash_pw(new_pass)
-                    db["users"][target_user]["failed_attempts"] = 0
-                    db["users"][target_user]["locked"]          = False
-                    save_db(db)
-                    log_activity(db, admin_user, f"Reset password for: {target_user}")
+                    update_user(target_user, {"password": hash_pw(new_pass), "failed_attempts": 0, "locked": False})
+                    log_activity(admin_user, f"Reset password for: {target_user}")
                     st.success(f"✅ Password reset for '{target_user}'. Account also unlocked.")
 
 # ══════════════════════════════════════════════════════════════
 # MAIN APP
 # ══════════════════════════════════════════════════════════════
 def main_app():
-    db   = load_db()
-    role = st.session_state.role
-    uname= st.session_state.username
+    role  = st.session_state.role
+    uname = st.session_state.username
     role_cls = "role-admin" if role == "Admin" else "role-auditor"
 
-    # Navbar
+    all_users     = get_all_users()
+    auditor_count = sum(1 for u in all_users.values() if u["role"] == "Auditor")
+    log_count     = get_activity_count()
+
     st.markdown(f"""
     <div class='navbar'>
         <div class='nav-logo'>⬡ &nbsp; TAXGUARD AI</div>
@@ -523,10 +539,7 @@ def main_app():
         </div>
     </div>""", unsafe_allow_html=True)
 
-    # Stat cards
-    total_users  = len(db["users"])
-    auditor_count= sum(1 for u in db["users"].values() if u["role"]=="Auditor")
-    s1,s2,s3,s4  = st.columns(4)
+    s1,s2,s3,s4 = st.columns(4)
     with s1:
         st.markdown("<div class='scard'><div class='scard-icon'>🤖</div><div class='snum'>3</div><div class='slbl'>AI Models Active</div></div>", unsafe_allow_html=True)
     with s2:
@@ -534,11 +547,10 @@ def main_app():
     with s3:
         st.markdown(f"<div class='scard green'><div class='scard-icon'>👤</div><div class='snum'>{auditor_count}</div><div class='slbl'>Auditors</div></div>", unsafe_allow_html=True)
     with s4:
-        st.markdown(f"<div class='scard gold'><div class='scard-icon'>📋</div><div class='snum'>{len(db['activity_log'])}</div><div class='slbl'>Activity Logs</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='scard gold'><div class='scard-icon'>📋</div><div class='snum'>{log_count}</div><div class='slbl'>Activity Logs</div></div>", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Build tabs based on role
     if role == "Admin":
         tabs = st.tabs(["🔍 Single Prediction","📂 Batch Detection","📊 Analytics","👥 User Management","📋 Activity Log","🔒 My Account"])
         t1,t2,t3,t4,t5,t6 = tabs
@@ -553,7 +565,7 @@ def main_app():
         with L:
             st.markdown("<div class='sec-title'>INCOME & TAX DETAILS</div>", unsafe_allow_html=True)
             Annual_Income         = st.number_input("Annual Income (₹)",         min_value=200000, value=1000000, step=10000)
-            Declared_Tax          = st.number_input("Declared Tax (₹)",          min_value=5000,   value=200000,  step=5000)    
+            Declared_Tax          = st.number_input("Declared Tax (₹)",          min_value=5000,   value=200000,  step=5000)
             Deduction_Risk        = st.slider("Deduction Risk Score",             0,100,50, help="Measures the likelihood of suspicious or excessive tax deductions.")
             Expense_Anomaly       = st.slider("Expense Anomaly Score",            0,100,50, help="Measures how unusual the reported expenses are compared to normal patterns.")
             Investment_Mismatch   = st.slider("Investment Mismatch Score",        0,100,50, help="Indicates inconsistencies between declared income and investments.")
@@ -567,7 +579,6 @@ def main_app():
             st.markdown("<div class='sec-title'>FLAGS & RISK INDICATORS</div>", unsafe_allow_html=True)
             High_Value_Transactions = st.slider("High Value Transaction Count",   0,100,50, help="Represents the number or frequency of unusually high-value transactions.")
             Foreign_Asset_Score     = st.slider("Foreign Asset Disclosure Score", 0,100,50, help="Measures risk associated with foreign asset ownership and disclosure.")
-
             Previous_Audit_Flag     = st.radio("Previous Audit Flag",    [0,1], horizontal=True, help="1 indicates the taxpayer was audited previously.")
             Penalty_History         = st.radio("Penalty History Flag",   [0,1], horizontal=True, help="1 indicates previous tax penalties or violations.")
             GST_Mismatch            = st.radio("GST Mismatch Flag",      [0,1], horizontal=True, help="1 indicates discrepancies between GST records and tax filings.")
@@ -595,7 +606,7 @@ def main_app():
             lr_p   = float(lr_model.predict_proba(scaled)[0][1])
             final  = (rf_p + xgb_p + lr_p) / 3; is_fr = final >= 0.5
             if is_fr: st.session_state.fraud_count += 1
-            log_activity(db, uname, f"Ran prediction — result: {'FRAUD' if is_fr else 'SAFE'} ({final:.1%})")
+            log_activity(uname, f"Ran prediction — result: {'FRAUD' if is_fr else 'SAFE'} ({final:.1%})")
 
             if   final < 0.30: rl,rl_cls="🟢 LOW RISK","rl-low"
             elif final < 0.60: rl,rl_cls="🟡 MEDIUM RISK","rl-med"
@@ -665,12 +676,12 @@ def main_app():
                 rf_p2=rf_model.predict_proba(scaled_b)[:,1]
                 xgb_p2=xgb_model.predict_proba(scaled_b)[:,1]
                 lr_p2=lr_model.predict_proba(scaled_b)[:,1]
-                avg=( rf_p2+xgb_p2+lr_p2)/3
+                avg=(rf_p2+xgb_p2+lr_p2)/3
                 df_b["RF_%"]=(rf_p2*100).round(1); df_b["XGB_%"]=(xgb_p2*100).round(1)
                 df_b["LR_%"]=(lr_p2*100).round(1); df_b["Avg_%"]=(avg*100).round(1)
                 df_b["VERDICT"]=np.where(avg>=0.5,"🚨 FRAUD","✅ SAFE")
                 fn=int((avg>=0.5).sum()); sn=len(df_b)-fn
-                log_activity(db,uname,f"Batch analysis: {len(df_b)} records, {fn} fraud detected")
+                log_activity(uname,f"Batch analysis: {len(df_b)} records, {fn} fraud detected")
                 b1,b2,b3=st.columns(3)
                 b1.metric("Total Records",len(df_b))
                 b2.metric("🚨 Fraud Cases",fn)
@@ -705,23 +716,17 @@ def main_app():
                 else:               return "#1a5080"
             colors = [get_color(v) for v in shap_df["SHAP_Value"]]
             fig = go.Figure(go.Bar(
-                x=shap_df["SHAP_Value"],
-                y=shap_df["Feature"],
-                orientation="h",
+                x=shap_df["SHAP_Value"], y=shap_df["Feature"], orientation="h",
                 marker=dict(color=colors),
                 text=[f"{v:.4f}" for v in shap_df["SHAP_Value"]],
-                textposition="outside",
-                textfont=dict(color="#ffffff", size=11)
+                textposition="outside", textfont=dict(color="#ffffff", size=11)
             ))
             fig.update_layout(
-                paper_bgcolor="#020b18",
-                plot_bgcolor="#0a1f3a",
+                paper_bgcolor="#020b18", plot_bgcolor="#0a1f3a",
                 font=dict(color="#ffffff", family="Share Tech Mono"),
                 xaxis=dict(title="Mean |SHAP Value|", color="#7eb8d4", gridcolor="#1a5080", tickfont=dict(color="#7eb8d4")),
                 yaxis=dict(color="#ffffff", tickfont=dict(color="#ffffff", size=11), gridcolor="#1a5080"),
-                height=520,
-                margin=dict(l=10, r=80, t=20, b=40),
-                showlegend=False
+                height=520, margin=dict(l=10, r=80, t=20, b=40), showlegend=False
             )
             st.plotly_chart(fig, use_container_width=True)
             st.markdown("<div class='info-box2'>📊 Real SHAP values from TreeExplainer on your trained Random Forest. Higher = stronger fraud influence. 🔴 Critical &nbsp;🟠 High &nbsp;🟡 Medium &nbsp;🔵 Low</div>", unsafe_allow_html=True)
@@ -739,8 +744,6 @@ def main_app():
                     </div>""", unsafe_allow_html=True)
         else:
             st.warning("⚠️ Run train_model.py to generate real SHAP values.")
-            shap_df=pd.DataFrame({"Feature":["Shell Company Link","GST Mismatch","Cash Deposit Spike","Asset Underreporting","Compliance Risk"],"SHAP Value":[0.29,0.24,0.20,0.18,0.15]})
-            st.bar_chart(shap_df.set_index("Feature"))
         i1,i2,i3=st.columns(3)
         with i1: st.info("**SMOTE** — Synthetic Minority Oversampling fixes class imbalance")
         with i2: st.info("**TreeExplainer** — SHAP method optimized for Random Forest models")
@@ -750,50 +753,43 @@ def main_app():
     if role == "Admin" and t4:
         with t4:
             st.markdown("<div class='sec-title'>USER MANAGEMENT</div>", unsafe_allow_html=True)
-
-            # Show all users
             user_rows = []
-            for un, ud in db["users"].items():
+            for un, ud in all_users.items():
                 user_rows.append({
-                    "Username":      un,
-                    "Role":          ud["role"],
-                    "Created":       ud.get("created","—"),
-                    "Created By":    ud.get("created_by","System"),
-                    "Last Login":    ud.get("last_login","Never"),
+                    "Username":       un,
+                    "Role":           ud["role"],
+                    "Created":        ud.get("created","—"),
+                    "Created By":     ud.get("created_by","System"),
+                    "Last Login":     ud.get("last_login","Never") or "Never",
                     "Failed Attempts":ud.get("failed_attempts",0),
-                    "Status":        "🔒 LOCKED" if ud.get("locked") else "✅ Active"
+                    "Status":         "🔒 LOCKED" if ud.get("locked") else "✅ Active"
                 })
             st.dataframe(pd.DataFrame(user_rows),use_container_width=True)
 
             st.markdown("<div class='sec-title'>UNLOCK / LOCK ACCOUNT</div>", unsafe_allow_html=True)
-            target = st.selectbox("Select user", [u for u in db["users"] if u != uname])
-            a1,a2 = st.columns(2)
-            with a1:
-                if st.button("🔓  Unlock Account"):
-                    db["users"][target]["locked"]          = False
-                    db["users"][target]["failed_attempts"] = 0
-                    save_db(db)
-                    log_activity(db,uname,f"Unlocked account: {target}")
-                    st.success(f"✅ {target} unlocked.")
-                    st.rerun()
-            with a2:
-                if st.button("🔒  Lock Account"):
-                    db["users"][target]["locked"] = True
-                    save_db(db)
-                    log_activity(db,uname,f"Locked account: {target}")
-                    st.warning(f"🔒 {target} locked.")
-                    st.rerun()
+            other_users = [u for u in all_users if u != uname]
+            if other_users:
+                target = st.selectbox("Select user", other_users)
+                a1,a2 = st.columns(2)
+                with a1:
+                    if st.button("🔓  Unlock Account"):
+                        update_user(target, {"locked": False, "failed_attempts": 0})
+                        log_activity(uname, f"Unlocked account: {target}")
+                        st.success(f"✅ {target} unlocked."); st.rerun()
+                with a2:
+                    if st.button("🔒  Lock Account"):
+                        update_user(target, {"locked": True})
+                        log_activity(uname, f"Locked account: {target}")
+                        st.warning(f"🔒 {target} locked."); st.rerun()
 
             st.markdown("<div class='sec-title'>DELETE AUDITOR ACCOUNT</div>", unsafe_allow_html=True)
-            auditors = [u for u,d in db["users"].items() if d["role"]=="Auditor"]
+            auditors = [u for u,d in all_users.items() if d["role"]=="Auditor"]
             if auditors:
                 del_target = st.selectbox("Select auditor to delete", auditors, key="del_sel")
                 if st.button("🗑️  DELETE ACCOUNT"):
-                    del db["users"][del_target]
-                    save_db(db)
-                    log_activity(db,uname,f"Deleted auditor account: {del_target}")
-                    st.success(f"✅ Account '{del_target}' deleted.")
-                    st.rerun()
+                    delete_user(del_target)
+                    log_activity(uname, f"Deleted auditor account: {del_target}")
+                    st.success(f"✅ Account '{del_target}' deleted."); st.rerun()
             else:
                 st.info("No auditor accounts to delete.")
 
@@ -801,29 +797,27 @@ def main_app():
     if role == "Admin" and t5:
         with t5:
             st.markdown("<div class='sec-title'>SYSTEM ACTIVITY LOG</div>", unsafe_allow_html=True)
-            st.markdown(f"<div class='info-box2'>Showing last {len(db['activity_log'])} activity entries</div>", unsafe_allow_html=True)
-
-            for entry in db["activity_log"][:50]:
+            activity = get_activity_log()
+            st.markdown(f"<div class='info-box2'>Showing last {len(activity)} activity entries</div>", unsafe_allow_html=True)
+            for entry in activity[:50]:
                 st.markdown(f"""
                 <div class='log-row'>
                     <span class='log-time'>🕐 {entry['time']}</span>
                     <span class='log-user'>👤 {entry['user']}</span>
                     <span class='log-action'>{entry['action']}</span>
                 </div>""", unsafe_allow_html=True)
-
-            if db["activity_log"]:
-                log_df = pd.DataFrame(db["activity_log"])
+            if activity:
+                log_df = pd.DataFrame(activity)
                 st.download_button("⬇️  Download Full Log",log_df.to_csv(index=False),"activity_log.csv","text/csv",key="log_dl")
 
-    # ════════ TAB — MY ACCOUNT (change password) ════════
+    # ════════ TAB 6 — MY ACCOUNT ════════
     with t6:
         st.markdown("<div class='sec-title'>MY ACCOUNT</div>", unsafe_allow_html=True)
-
-        user_info = db["users"].get(uname,{})
+        user_info = get_user(uname) or {}
         i1,i2,i3 = st.columns(3)
         i1.metric("Username", uname)
-        i2.metric("Role",     user_info.get("role","—"))
-        i3.metric("Last Login",user_info.get("last_login","First login"))
+        i2.metric("Role", user_info.get("role","—"))
+        i3.metric("Last Login", user_info.get("last_login","First login") or "First login")
 
         st.markdown("<div class='sec-title'>CHANGE PASSWORD</div>", unsafe_allow_html=True)
         cur_pw  = st.text_input("Current Password", type="password", key="cp_cur")
@@ -831,7 +825,7 @@ def main_app():
         conf_pw = st.text_input("Confirm New Password", type="password", key="cp_conf")
 
         if st.button("🔄  UPDATE PASSWORD"):
-            if hash_pw(cur_pw) != db["users"][uname]["password"]:
+            if hash_pw(cur_pw) != user_info.get("password",""):
                 st.error("Current password is wrong.")
             elif len(new_pw) < 8:
                 st.error("New password must be at least 8 characters.")
@@ -840,9 +834,8 @@ def main_app():
             elif new_pw == cur_pw:
                 st.error("New password must be different from current.")
             else:
-                db["users"][uname]["password"] = hash_pw(new_pw)
-                save_db(db)
-                log_activity(db,uname,"Changed own password")
+                update_user(uname, {"password": hash_pw(new_pw)})
+                log_activity(uname, "Changed own password")
                 st.success("✅ Password updated successfully!")
 
     # Logout
@@ -850,7 +843,7 @@ def main_app():
     _,lc,_ = st.columns([3,1,3])
     with lc:
         if st.button("🚪  Logout"):
-            log_activity(load_db(), uname, "Logged out")
+            log_activity(uname, "Logged out")
             st.session_state.logged_in = False
             st.session_state.username  = None
             st.session_state.role      = None
