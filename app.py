@@ -110,7 +110,7 @@ def user_exists(username):
 # ── ACTIVITY LOG FUNCTIONS ───────────────────────────────────
 def log_activity(username, action):
     sb_request("POST", "activity_log", {
-        "time":   datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "time":   (datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d %H:%M:%S"),
         "username": username,
         "action": action
     })
